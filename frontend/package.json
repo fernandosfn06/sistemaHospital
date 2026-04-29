@@ -1,0 +1,27 @@
+{
+  "name": "sgh-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.4.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.45.1",
+    "react-router-dom": "^6.14.2",
+    "zod": "^3.21.4",
+    "@hookform/resolvers": "^3.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.14",
+    "@vitejs/plugin-react": "^4.0.3",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.26",
+    "tailwindcss": "^3.3.3",
+    "vite": "^4.4.4"
+  }
+}
