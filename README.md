@@ -1,4 +1,4 @@
-# 🏥 SGH — Sistema de Gestión Hospitalaria
+#  SGH — Sistema de Gestión Hospitalaria
 
 Proyecto académico desarrollado con metodología SCRUM.
 
@@ -47,11 +47,4 @@ npm run dev
 
 
 
-## Sprint 1 — Historias de usuario cubiertas
-- ✅ HU1: Registro de paciente
-- ✅ HU2: Inicio de sesión
-- ✅ HU3: Cierre de sesión
-- ✅ HU25: Almacenamiento en base de datos
-- ✅ HU26: Validación de credenciales
-- ✅ HU30: Bloqueo por intentos fallidos
-- ✅ HU31: Visualización básica de usuarios (admin)
+
