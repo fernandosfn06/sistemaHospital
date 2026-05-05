@@ -7,6 +7,11 @@ import Registro from './pages/Registro';
 import Dashboard from './pages/Dashboard';
 import AdminUsuarios from './pages/AdminUsuarios';
 import './index.css';
+import ListaPacientes from './pages/ListaPacientes';
+import VistaPaciente from './pages/VistaPaciente';
+import FormularioPaciente from './pages/FormularioPaciente';
+import AdminUsuarios from './pages/AdminUsuarios';
+import EditarPaciente from './pages/EditarPaciente';
 
 // Layout con sidebar lateral para páginas protegidas
 const AppLayout = ({ children }) => (
@@ -44,6 +49,12 @@ const App = () => {
           {/* Redirección por defecto */}
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
+
+          <Route path="/pacientes" element={<ListaPacientes />} />
+          <Route path="/pacientes/:id" element={<VistaPaciente />} />
+          <Route path="/pacientes/:id/editar" element={<FormularioPaciente />} />
+          <Route path="/admin/usuarios" element={<AdminUsuarios />} />
+          <Route path="/pacientes/:id/editar" element={<EditarPaciente />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
