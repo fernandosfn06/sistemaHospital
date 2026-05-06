@@ -65,6 +65,41 @@ app.post('/api/pacientes/registro', async (req, res) => {
     }
 });
 
+
+// --- HU8 BE: ENDPOINT DETALLE DE PACIENTE ---
+// El ':id' es un parámetro dinámico. Express lo captura automáticamente.
+app.get('/api/pacientes/:id', (req, res) => {
+    // 1. Extraemos el ID que el frontend puso en la URL
+    const pacienteId = req.params.id;
+
+    // 2. Preparamos la consulta SQL. 
+    // Usamos INNER JOIN para unir la tabla 'pacientes' con 'usuarios' y traer el email también.
+    const queryDetalle = `
+        SELECT p.id, p.nombre, p.apellidos, p.fecha_nacimiento, p.telefono, u.email 
+        FROM pacientes p
+        INNER JOIN usuarios u ON p.usuario_id = u.id
+        WHERE p.id = ?
+    `;
+
+    // 3. Ejecutamos la consulta
+    db.query(queryDetalle, [pacienteId], (err, result) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ error: 'Error interno al buscar los datos del paciente' });
+        }
+
+        // 4. Verificamos si MySQL encontró a un paciente con ese ID
+        if (result.length === 0) {
+            return res.status(404).json({ mensaje: 'Paciente no encontrado en el sistema' });
+        }
+
+        // 5. Si todo sale bien, enviamos los datos completos al frontend
+        // Usamos result[0] porque sabemos que la búsqueda solo devolverá a una persona
+        res.status(200).json(result[0]); 
+    });
+});
+
+
 // Encender el servidor
 const PORT = 3000;
 app.listen(PORT, () => {
