@@ -65,9 +65,53 @@ app.post('/api/pacientes/registro', async (req, res) => {
     }
 });
 
+// --- HU7 BE: ENDPOINT LISTAR PACIENTES (CON PAGINACIÓN Y FILTROS) ---
+app.get('/api/pacientes', (req, res) => {
+    const page = parseInt(req.query.page) || 1;      
+    const limit = parseInt(req.query.limit) || 10;   
+    const search = req.query.search || '';           
+
+    const offset = (page - 1) * limit;
+
+    let queryListar = `
+        SELECT p.id, p.nombre, p.apellidos, p.fecha_nacimiento, p.telefono, u.email 
+        FROM pacientes p
+        INNER JOIN usuarios u ON p.usuario_id = u.id
+    `;
+
+    let queryParams = []; 
+
+   
+    if (search) {
+        queryListar += ` WHERE p.nombre LIKE ? OR p.apellidos LIKE ?`;
+       
+        queryParams.push(`%${search}%`, `%${search}%`);
+    }
+
+    // 5. Instrucciones de paginación
+    queryListar += ` LIMIT ? OFFSET ?`;
+    queryParams.push(limit, offset);
+
+   
+    db.query(queryListar, queryParams, (err, results) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ error: 'Error al obtener la lista de pacientes' });
+        }
+
+      
+        res.status(200).json({
+            pagina_actual: page,
+            resultados_por_pagina: limit,
+            total_devueltos: results.length,
+            pacientes: results
+        });
+    });
+});
+
 
 // --- HU8 BE: ENDPOINT DETALLE DE PACIENTE ---
-// El ':id' es un parámetro dinámico. Express lo captura automáticamente.
+
 app.get('/api/pacientes/:id', (req, res) => {
     // 1. Extraemos el ID que el frontend puso en la URL
     const pacienteId = req.params.id;
@@ -116,7 +160,7 @@ app.put('/api/pacientes/:id', (req, res) => {
         });
     }
 
-    // B. Validar longitud del teléfono (asumiendo que en México son 10 dígitos)
+    // B. Validar longitud del teléfono 
     if (telefono.length !== 10) {
         return res.status(400).json({ 
             error: 'Formato inválido. El número de teléfono debe tener exactamente 10 dígitos.' 
@@ -139,12 +183,12 @@ app.put('/api/pacientes/:id', (req, res) => {
         }
 
         // 4. Verificamos si MySQL realmente encontró y modificó una fila
-        // 'affectedRows' es una propiedad que MySQL devuelve al hacer un UPDATE o DELETE
+       
         if (result.affectedRows === 0) {
             return res.status(404).json({ mensaje: 'No se pudo actualizar: Paciente no encontrado' });
         }
 
-        // 5. Respuesta de éxito
+        // 5. Respuesta 
         res.status(200).json({ mensaje: 'Datos del paciente actualizados exitosamente' });
     });
 });
