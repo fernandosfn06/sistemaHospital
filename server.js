@@ -100,6 +100,55 @@ app.get('/api/pacientes/:id', (req, res) => {
 });
 
 
+// --- HU9 BE: ENDPOINT ACTUALIZAR PACIENTE ---
+// Usamos PUT porque vamos a sobreescribir datos existentes
+app.put('/api/pacientes/:id', (req, res) => {
+    const pacienteId = req.params.id;
+    
+    // Extraemos los datos que nos envía el frontend para actualizar
+    const { nombre, apellidos, fecha_nacimiento, telefono } = req.body;
+
+    // --- 1. VALIDACIONES ---
+    // A. Validar que no falte ningún campo
+    if (!nombre || !apellidos || !fecha_nacimiento || !telefono) {
+        return res.status(400).json({ 
+            error: 'Faltan datos. Todos los campos (nombre, apellidos, fecha_nacimiento, telefono) son obligatorios.' 
+        });
+    }
+
+    // B. Validar longitud del teléfono (asumiendo que en México son 10 dígitos)
+    if (telefono.length !== 10) {
+        return res.status(400).json({ 
+            error: 'Formato inválido. El número de teléfono debe tener exactamente 10 dígitos.' 
+        });
+    }
+
+    // --- 2. CONSULTA SQL ---
+    // Usamos UPDATE para cambiar los valores solo del paciente que coincida con el ID
+    const queryUpdate = `
+        UPDATE pacientes 
+        SET nombre = ?, apellidos = ?, fecha_nacimiento = ?, telefono = ?
+        WHERE id = ?
+    `;
+
+    // --- 3. EJECUTAR ACTUALIZACIÓN ---
+    db.query(queryUpdate, [nombre, apellidos, fecha_nacimiento, telefono, pacienteId], (err, result) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ error: 'Error interno al intentar actualizar los datos' });
+        }
+
+        // 4. Verificamos si MySQL realmente encontró y modificó una fila
+        // 'affectedRows' es una propiedad que MySQL devuelve al hacer un UPDATE o DELETE
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ mensaje: 'No se pudo actualizar: Paciente no encontrado' });
+        }
+
+        // 5. Respuesta de éxito
+        res.status(200).json({ mensaje: 'Datos del paciente actualizados exitosamente' });
+    });
+});
+
 // Encender el servidor
 const PORT = 3000;
 app.listen(PORT, () => {
