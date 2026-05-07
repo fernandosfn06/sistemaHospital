@@ -4,10 +4,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { registrar } from '../services/auth.service';
+import { zNombre, zTelefono } from '../utils/validators';
 
 const schema = z.object({
-  nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres.'),
-  apellido: z.string().min(2, 'El apellido es obligatorio.'),
+  nombre: zNombre('Nombre'),
+  apellido: zNombre('Apellido'),
   email: z.string().email('Correo electrónico inválido.'),
   password: z.string()
     .min(8, 'Mínimo 8 caracteres.')
@@ -16,8 +17,10 @@ const schema = z.object({
   confirmar_password: z.string(),
   fecha_nacimiento: z.string().min(1, 'La fecha de nacimiento es obligatoria.'),
   tipo_sangre: z.string().optional(),
-  curp: z.string().length(18, 'La CURP debe tener 18 caracteres.').optional().or(z.literal('')),
-  telefono: z.string().optional(),
+  curp: z.string().length(18, 'La CURP debe tener 18 caracteres.')
+    .regex(/^[A-Z0-9]+$/, 'La CURP solo puede contener letras y números.')
+    .optional().or(z.literal('')),
+  telefono: zTelefono,
 }).refine((d) => d.password === d.confirmar_password, {
   message: 'Las contraseñas no coinciden.',
   path: ['confirmar_password'],
