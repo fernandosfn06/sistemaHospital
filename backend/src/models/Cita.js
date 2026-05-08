@@ -25,7 +25,9 @@ const Cita = sequelize.define('Cita', {
     defaultValue: 'programada',
   },
   motivo_cancelacion: { type: DataTypes.TEXT, allowNull: true },
-  // cuando se reprograma, guarda referencia a la cita original
+  motivo_reprogramacion: { type: DataTypes.TEXT, allowNull: true },
+  fecha_anterior: { type: DataTypes.DATEONLY, allowNull: true },
+  hora_inicio_anterior: { type: DataTypes.TIME, allowNull: true },
   cita_original_id: {
     type: DataTypes.INTEGER,
     allowNull: true,

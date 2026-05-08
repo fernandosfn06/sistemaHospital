@@ -2,7 +2,7 @@ const { Router } = require('express');
 const { body } = require('express-validator');
 const {
   listarPacientes, obtenerPaciente, crearPaciente,
-  actualizarPaciente, toggleActivoPaciente,
+  actualizarPaciente, eliminarPaciente, toggleActivoPaciente,
 } = require('../controllers/pacientes.controller');
 const { verificarToken, verificarRol } = require('../middlewares/auth.middleware');
 const { validarNombre, validarTexto } = require('../utils/validators');
@@ -56,5 +56,6 @@ router.get('/:id', verificarToken, verificarRol(...ROLES_CONSULTA), obtenerPacie
 router.post('/',   verificarToken, verificarRol(...ROLES_GESTION),  validarCrear, crearPaciente);
 router.put('/:id', verificarToken, verificarRol(...ROLES_EDICION),  validarActualizar, actualizarPaciente);
 router.patch('/:id/toggle', verificarToken, verificarRol(...ROLES_GESTION), toggleActivoPaciente);
+router.delete('/:id', verificarToken, verificarRol('admin'), eliminarPaciente);
 
 module.exports = router;

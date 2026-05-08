@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getMedicos, getEspecialidades } from '../services/medicos.service';
+import { getMedicos, getEspecialidades, eliminarMedico } from '../services/medicos.service';
 
 const Medicos = () => {
   const { usuario } = useAuth();
@@ -16,6 +16,7 @@ const Medicos = () => {
   const [error, setError] = useState('');
   const [buscar, setBuscar] = useState('');
   const [filtroEsp, setFiltroEsp] = useState('');
+  const [deleteModal, setDeleteModal] = useState(null);
 
   const esAdmin = usuario?.rol === 'admin';
 
@@ -40,11 +41,52 @@ const Medicos = () => {
     getEspecialidades().then((r) => setEspecialidades(r.data)).catch(() => {});
   }, []);
 
+  const handleEliminar = async () => {
+    if (!deleteModal) return;
+    try {
+      await eliminarMedico(deleteModal.id);
+      setDeleteModal(null);
+      cargar();
+    } catch (err) {
+      const msg = err?.response?.data?.mensaje || 'Error al eliminar el médico.';
+      setError(msg);
+      setDeleteModal(null);
+    }
+  };
+
   const initials = (m) =>
     `${m.usuario.nombre?.[0] ?? ''}${m.usuario.apellido?.[0] ?? ''}`.toUpperCase();
 
   return (
     <div className="p-8">
+      {deleteModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h3 className="text-base font-semibold text-slate-800 mb-2">Eliminar médico</h3>
+            <p className="text-sm text-slate-500 mb-2">
+              ¿Estás seguro de que deseas eliminar permanentemente al Dr.{' '}
+              <span className="font-medium text-slate-700">
+                {deleteModal.usuario.nombre} {deleteModal.usuario.apellido}
+              </span>?
+            </p>
+            <p className="text-xs text-red-600 mb-6">Esta acción no se puede deshacer. Si el médico tiene citas, no podrá eliminarse.</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteModal(null)}
+                className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEliminar}
+                className="px-4 py-2 text-sm rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800">Médicos</h1>
@@ -126,9 +168,9 @@ const Medicos = () => {
                     </div>
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-600 ring-1 ring-blue-200">
-                      {m.especialidad.nombre}
-                    </span>
+                    {m.especialidad
+                      ? <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-600 ring-1 ring-blue-200">{m.especialidad.nombre}</span>
+                      : <span className="text-slate-300 text-xs">—</span>}
                   </td>
                   <td className="px-5 py-3.5 text-slate-500 font-mono text-xs">{m.cedula_profesional}</td>
                   <td className="px-5 py-3.5 text-slate-500 text-xs">
@@ -146,12 +188,20 @@ const Medicos = () => {
                   </td>
                   {esAdmin && (
                     <td className="px-5 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => navigate(`/medicos/${m.id}/editar`)}
-                        className="text-xs px-3 py-1.5 rounded-lg font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
-                      >
-                        Editar
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => navigate(`/medicos/${m.id}/editar`)}
+                          className="text-xs px-3 py-1.5 rounded-lg font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => setDeleteModal(m)}
+                          className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>

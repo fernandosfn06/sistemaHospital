@@ -66,9 +66,11 @@ const MedicoDetalle = () => {
                 {medico.activo ? 'Activo' : 'Inactivo'}
               </span>
             </div>
-            <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-600 ring-1 ring-blue-200">
-              {medico.especialidad.nombre}
-            </span>
+            {medico.especialidad && (
+              <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-600 ring-1 ring-blue-200">
+                {medico.especialidad.nombre}
+              </span>
+            )}
           </div>
         </div>
         {esAdmin && (
@@ -90,7 +92,7 @@ const MedicoDetalle = () => {
           <div className="grid grid-cols-2 gap-x-8 gap-y-4">
             <Campo label="Correo electrónico" value={u.email} />
             <Campo label="Cédula profesional" value={medico.cedula_profesional} />
-            <Campo label="Especialidad" value={medico.especialidad.nombre} />
+            <Campo label="Especialidad" value={medico.especialidad?.nombre} />
             <Campo label="Teléfono consultorio" value={medico.telefono_consultorio} />
           </div>
         </div>

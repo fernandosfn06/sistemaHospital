@@ -1,3 +1,4 @@
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const rolLabel = {
@@ -11,6 +12,8 @@ const rolLabel = {
 
 const Dashboard = () => {
   const { usuario } = useAuth();
+
+  if (usuario?.rol === 'paciente') return <Navigate to="/mi-panel" replace />;
 
   return (
     <div className="p-8">

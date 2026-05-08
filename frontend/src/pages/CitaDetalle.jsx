@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getCita, cancelarCita, confirmarCita } from '../services/citas.service';
+import { getCita, cancelarCita, confirmarCita, completarCita, eliminarCita } from '../services/citas.service';
 import { getDisponibilidad } from '../services/medicos.service';
 import { reprogramarCita } from '../services/citas.service';
 
@@ -16,6 +16,24 @@ const ESTADO_LABEL = {
   programada: 'Programada', confirmada: 'Confirmada', cancelada: 'Cancelada',
   reprogramada: 'Reprogramada', completada: 'Completada',
 };
+
+const ModalEliminar = ({ onConfirmar, onCancelar, cargando }) => (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+      <h3 className="text-base font-semibold text-slate-800 mb-2">Eliminar cita</h3>
+      <p className="text-sm text-slate-500 mb-5">Esta acción es permanente y no se puede deshacer. ¿Deseas continuar?</p>
+      <div className="flex gap-3 justify-end">
+        <button onClick={onCancelar} className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+          Cancelar
+        </button>
+        <button onClick={onConfirmar} disabled={cargando}
+          className="px-4 py-2 text-sm rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50">
+          {cargando ? 'Eliminando...' : 'Eliminar cita'}
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
 const ModalCancelar = ({ onConfirmar, onCancelar, cargando }) => {
   const [motivo, setMotivo] = useState('');
@@ -42,12 +60,12 @@ const ModalCancelar = ({ onConfirmar, onCancelar, cargando }) => {
 };
 
 const ModalReprogramar = ({ cita, onConfirmar, onCancelar, cargando }) => {
-  const [fecha, setFecha]         = useState('');
-  const [slots, setSlots]         = useState([]);
-  const [horaElegida, setHora]    = useState('');
-  const [mensajeDia, setMensaje]  = useState('');
-  const [cargandoS, setCargandoS] = useState(false);
-  const [motivo, setMotivo]       = useState(cita.motivo);
+  const [fecha, setFecha]               = useState('');
+  const [slots, setSlots]               = useState([]);
+  const [horaElegida, setHora]          = useState('');
+  const [mensajeDia, setMensaje]        = useState('');
+  const [cargandoS, setCargandoS]       = useState(false);
+  const [motivoRep, setMotivoRep]       = useState('');
 
   const hoy = new Date().toISOString().split('T')[0];
 
@@ -96,17 +114,18 @@ const ModalReprogramar = ({ cita, onConfirmar, onCancelar, cargando }) => {
             </div>
           )}
           <div>
-            <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Motivo</label>
-            <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-[#2E75B6] focus:ring-1 focus:ring-[#2E75B6] transition resize-none" />
+            <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Motivo de la reprogramación</label>
+            <textarea value={motivoRep} onChange={(e) => setMotivoRep(e.target.value)} rows={2}
+              placeholder="¿Por qué se reprograma esta cita?"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-300 focus:outline-none focus:border-[#2E75B6] focus:ring-1 focus:ring-[#2E75B6] transition resize-none" />
           </div>
         </div>
         <div className="flex gap-3 justify-end mt-5">
           <button onClick={onCancelar} className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
             Cancelar
           </button>
-          <button onClick={() => onConfirmar({ fecha, hora_inicio: horaElegida, motivo })}
-            disabled={!fecha || !horaElegida || !motivo.trim() || cargando}
+          <button onClick={() => onConfirmar({ fecha, hora_inicio: horaElegida, motivo_reprogramacion: motivoRep })}
+            disabled={!fecha || !horaElegida || cargando}
             className="px-4 py-2 text-sm rounded-lg font-medium bg-[#0f2b3d] hover:bg-[#1a3f58] text-white transition-colors disabled:opacity-50">
             {cargando ? 'Reprogramando...' : 'Confirmar'}
           </button>
@@ -124,11 +143,13 @@ const CitaDetalle = () => {
   const [cita, setCita]                   = useState(null);
   const [cargando, setCargando]           = useState(true);
   const [error, setError]                 = useState('');
-  const [accion, setAccion]               = useState(null); // 'cancelar' | 'reprogramar'
+  const [accion, setAccion]               = useState(null); // 'cancelar' | 'reprogramar' | 'eliminar'
   const [accionCargando, setAccionCargando] = useState(false);
 
   const puedeActuar = ['admin', 'recepcionista', 'medico', 'enfermera'].includes(usuario?.rol);
   const puedeConfirmar = ['admin', 'recepcionista', 'medico'].includes(usuario?.rol);
+  const puedeCompletar = ['admin', 'medico', 'enfermera'].includes(usuario?.rol);
+  const puedeEliminar = ['admin', 'recepcionista', 'medico'].includes(usuario?.rol);
 
   const cargar = () => {
     getCita(id)
@@ -143,8 +164,8 @@ const CitaDetalle = () => {
     setAccionCargando(true);
     try {
       await cancelarCita(id, motivo);
-      setAccion(null);
-      cargar();
+      await eliminarCita(id);
+      navigate('/citas');
     } catch (err) {
       setError(err.response?.data?.mensaje || 'Error al cancelar.');
       setAccion(null);
@@ -156,9 +177,9 @@ const CitaDetalle = () => {
   const handleReprogramar = async (datos) => {
     setAccionCargando(true);
     try {
-      const res = await reprogramarCita(id, datos);
+      await reprogramarCita(id, datos);
       setAccion(null);
-      navigate(`/citas/${res.data.id}`);
+      cargar();
     } catch (err) {
       setError(err.response?.data?.mensaje || 'Error al reprogramar.');
       setAccion(null);
@@ -176,14 +197,37 @@ const CitaDetalle = () => {
     }
   };
 
+  const handleEliminar = async () => {
+    setAccionCargando(true);
+    try {
+      await eliminarCita(id);
+      navigate('/citas');
+    } catch (err) {
+      setError(err.response?.data?.mensaje || 'Error al eliminar.');
+      setAccion(null);
+    } finally {
+      setAccionCargando(false);
+    }
+  };
+
+  const handleCompletar = async () => {
+    try {
+      await completarCita(id);
+      cargar();
+    } catch (err) {
+      setError(err.response?.data?.mensaje || 'Error al completar.');
+    }
+  };
+
   const formatFecha = (f) =>
     new Date(f + 'T00:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
   if (cargando) return <div className="p-8 text-center"><p className="text-slate-400 text-sm">Cargando cita...</p></div>;
   if (error && !cita) return <div className="p-8"><p className="text-red-500 text-sm">{error}</p><button onClick={() => navigate('/citas')} className="text-[#2E75B6] text-sm mt-2 hover:underline">← Volver</button></div>;
 
-  const puedeModificar = puedeActuar && !['cancelada', 'completada', 'reprogramada'].includes(cita.estado);
+  const puedeModificar = puedeActuar && !['cancelada', 'completada'].includes(cita.estado);
   const puedeConfirmarCita = puedeConfirmar && cita.estado === 'programada';
+  const puedeCompletarCita = puedeCompletar && ['programada', 'confirmada'].includes(cita.estado);
 
   return (
     <div className="p-8 max-w-3xl">
@@ -193,6 +237,9 @@ const CitaDetalle = () => {
       {accion === 'reprogramar' && (
         <ModalReprogramar cita={cita} onConfirmar={handleReprogramar} onCancelar={() => setAccion(null)} cargando={accionCargando} />
       )}
+      {accion === 'eliminar' && (
+        <ModalEliminar onConfirmar={handleEliminar} onCancelar={() => setAccion(null)} cargando={accionCargando} />
+      )}
 
       <div className="flex items-center gap-4 mb-8">
         <button onClick={() => navigate('/citas')} className="text-slate-400 hover:text-slate-600 transition-colors">
@@ -201,32 +248,51 @@ const CitaDetalle = () => {
           </svg>
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-semibold text-slate-800">Cita #{cita.id}</h1>
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${ESTADO_BADGE[cita.estado]}`}>
               {ESTADO_LABEL[cita.estado]}
             </span>
+            {cita.motivo_reprogramacion && (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-600 ring-1 ring-amber-200">
+                Reprogramada
+              </span>
+            )}
           </div>
           <p className="text-slate-400 text-sm mt-0.5">{formatFecha(cita.fecha)}, {cita.hora_inicio.substring(0,5)}–{cita.hora_fin.substring(0,5)}</p>
         </div>
-        {puedeModificar && (
-          <div className="flex gap-2">
-            {puedeConfirmarCita && (
-              <button onClick={handleConfirmar}
-                className="text-sm px-3 py-2 rounded-lg font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
-                Confirmar
+        <div className="flex gap-2 flex-wrap">
+          {puedeModificar && (
+            <>
+              {puedeConfirmarCita && (
+                <button onClick={handleConfirmar}
+                  className="text-sm px-3 py-2 rounded-lg font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
+                  Confirmar
+                </button>
+              )}
+              {puedeCompletarCita && (
+                <button onClick={handleCompletar}
+                  className="text-sm px-3 py-2 rounded-lg font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors">
+                  Completar
+                </button>
+              )}
+              <button onClick={() => setAccion('reprogramar')}
+                className="text-sm px-3 py-2 rounded-lg font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors">
+                Reprogramar
               </button>
-            )}
-            <button onClick={() => setAccion('reprogramar')}
-              className="text-sm px-3 py-2 rounded-lg font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors">
-              Reprogramar
+              <button onClick={() => setAccion('cancelar')}
+                className="text-sm px-3 py-2 rounded-lg font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
+                Cancelar
+              </button>
+            </>
+          )}
+          {puedeEliminar && (
+            <button onClick={() => setAccion('eliminar')}
+              className="text-sm px-3 py-2 rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white transition-colors">
+              Eliminar
             </button>
-            <button onClick={() => setAccion('cancelar')}
-              className="text-sm px-3 py-2 rounded-lg font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
-              Cancelar
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {error && <div className="mb-5 px-4 py-3 rounded-lg text-sm border-l-4 bg-red-50 border-red-500 text-red-700">{error}</div>}
@@ -245,7 +311,7 @@ const CitaDetalle = () => {
           <div className="bg-white border border-slate-200 rounded-xl p-5">
             <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Médico</p>
             <p className="font-medium text-slate-800">Dr. {cita.medico.usuario.nombre} {cita.medico.usuario.apellido}</p>
-            <p className="text-slate-500 text-sm mt-0.5">{cita.medico.especialidad.nombre}</p>
+            <p className="text-slate-500 text-sm mt-0.5">{cita.medico.especialidad?.nombre ?? '—'}</p>
           </div>
         </div>
 
@@ -261,12 +327,15 @@ const CitaDetalle = () => {
           </div>
         )}
 
-        {cita.citaOriginal && (
+        {cita.motivo_reprogramacion && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
-            <p className="text-xs font-medium text-amber-500 uppercase tracking-wider mb-1">Reprogramación de cita #{cita.cita_original_id}</p>
-            <button onClick={() => navigate(`/citas/${cita.cita_original_id}`)} className="text-[#2E75B6] text-xs hover:underline">
-              Ver cita original →
-            </button>
+            <p className="text-xs font-medium text-amber-500 uppercase tracking-wider mb-2">Cita reprogramada</p>
+            {cita.fecha_anterior && (
+              <p className="text-sm text-amber-700 mb-1">
+                Fecha original: <span className="font-medium">{formatFecha(cita.fecha_anterior)}, {cita.hora_inicio_anterior?.substring(0, 5)}</span>
+              </p>
+            )}
+            <p className="text-sm text-amber-700">Motivo: {cita.motivo_reprogramacion}</p>
           </div>
         )}
 

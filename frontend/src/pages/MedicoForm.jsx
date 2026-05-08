@@ -17,7 +17,7 @@ const schemaCrear = z.object({
   apellido: zNombre('Apellido'),
   email: z.string().email('Correo inválido.'),
   password: z.string().min(8, 'Mínimo 8 caracteres.'),
-  especialidad_id: z.string().min(1, 'Selecciona una especialidad.'),
+  especialidad_id: z.string().optional(),
   cedula_profesional: z.string().min(1, 'La cédula es obligatoria.')
     .max(20, 'La cédula no puede exceder 20 caracteres.')
     .regex(/^[a-zA-Z0-9\-]+$/, 'La cédula solo puede contener letras, números y guiones.'),
@@ -80,7 +80,7 @@ const MedicoForm = () => {
         nombre: m.usuario.nombre,
         apellido: m.usuario.apellido,
         email: m.usuario.email,
-        especialidad_id: String(m.especialidad_id),
+        especialidad_id: m.especialidad_id ? String(m.especialidad_id) : '',
         cedula_profesional: m.cedula_profesional,
         telefono_consultorio: m.telefono_consultorio ?? '',
         horarios: (m.horarios ?? []).map((h) => ({
@@ -98,7 +98,7 @@ const MedicoForm = () => {
       setGuardando(true);
       setError('');
       setExito('');
-      const payload = { ...datos, especialidad_id: parseInt(datos.especialidad_id) };
+      const payload = { ...datos, especialidad_id: datos.especialidad_id ? parseInt(datos.especialidad_id) : null };
       if (esEdicion) {
         await actualizarMedico(id, payload);
         setExito('Médico actualizado correctamente.');
@@ -166,7 +166,7 @@ const MedicoForm = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5">
-                Especialidad <span className="text-red-400">*</span>
+                Especialidad
               </label>
               <select
                 {...register('especialidad_id')}

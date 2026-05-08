@@ -209,6 +209,41 @@ const actualizarPaciente = async (req, res) => {
   }
 };
 
+const eliminarPaciente = async (req, res) => {
+  try {
+    const Cita = require('../models/Cita');
+    const paciente = await Paciente.findByPk(req.params.id, {
+      include: [{ model: Usuario, as: 'usuario' }],
+    });
+
+    if (!paciente) {
+      return res.status(404).json({ ok: false, mensaje: 'Paciente no encontrado.' });
+    }
+
+    const tieneCitas = await Cita.count({
+      where: {
+        [Op.or]: [
+          { paciente_id: paciente.id },
+          { creado_por_id: paciente.usuario_id },
+        ],
+      },
+    });
+    if (tieneCitas > 0) {
+      return res.status(409).json({ ok: false, mensaje: 'No se puede eliminar el paciente porque tiene citas registradas. Desactívelo en su lugar.' });
+    }
+
+    await sequelize.transaction(async (t) => {
+      await paciente.destroy({ transaction: t });
+      await paciente.usuario.destroy({ transaction: t });
+    });
+
+    return res.status(200).json({ ok: true, mensaje: 'Paciente eliminado correctamente.' });
+  } catch (error) {
+    console.error('Error al eliminar paciente:', error);
+    return res.status(500).json({ ok: false, mensaje: 'Error al eliminar paciente.' });
+  }
+};
+
 const toggleActivoPaciente = async (req, res) => {
   try {
     const paciente = await Paciente.findByPk(req.params.id, {
@@ -219,13 +254,13 @@ const toggleActivoPaciente = async (req, res) => {
       return res.status(404).json({ ok: false, mensaje: 'Paciente no encontrado.' });
     }
 
-    paciente.usuario.activo = !paciente.usuario.activo;
-    await paciente.usuario.save();
+    const nuevoActivo = !paciente.usuario.activo;
+    await paciente.usuario.update({ activo: nuevoActivo });
 
     return res.status(200).json({
       ok: true,
-      mensaje: `Paciente ${paciente.usuario.activo ? 'activado' : 'desactivado'} correctamente.`,
-      data: { id: paciente.id, activo: paciente.usuario.activo },
+      mensaje: `Paciente ${nuevoActivo ? 'activado' : 'desactivado'} correctamente.`,
+      data: { id: paciente.id, activo: nuevoActivo },
     });
   } catch (error) {
     return res.status(500).json({ ok: false, mensaje: 'Error al actualizar paciente.' });
@@ -245,4 +280,4 @@ const generarPasswordTemporal = () => {
   return pass.split('').sort(() => Math.random() - 0.5).join('');
 };
 
-module.exports = { listarPacientes, obtenerPaciente, crearPaciente, actualizarPaciente, toggleActivoPaciente };
+module.exports = { listarPacientes, obtenerPaciente, crearPaciente, actualizarPaciente, eliminarPaciente, toggleActivoPaciente };

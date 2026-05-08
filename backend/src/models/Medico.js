@@ -13,7 +13,7 @@ const Medico = sequelize.define('Medico', {
   },
   especialidad_id: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
     references: { model: 'especialidades', key: 'id' },
   },
   cedula_profesional: {

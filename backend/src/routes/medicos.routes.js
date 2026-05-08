@@ -1,19 +1,19 @@
 const { Router } = require('express');
 const { body } = require('express-validator');
-const { listarMedicos, obtenerMedico, crearMedico, actualizarMedico, obtenerDisponibilidad } = require('../controllers/medicos.controller');
+const { listarMedicos, obtenerMedico, crearMedico, actualizarMedico, obtenerDisponibilidad, eliminarMedico } = require('../controllers/medicos.controller');
 const { verificarToken, verificarRol } = require('../middlewares/auth.middleware');
 const { validarNombre } = require('../utils/validators');
 
 const router = Router();
 
-const ROLES_CONSULTA = ['admin', 'medico', 'enfermera', 'recepcionista'];
+const ROLES_CONSULTA = ['admin', 'medico', 'enfermera', 'recepcionista', 'paciente'];
 
 const validarCrear = [
   validarNombre('nombre', 'Nombre'),
   validarNombre('apellido', 'Apellido'),
   body('email').isEmail().withMessage('Correo inválido.').normalizeEmail(),
   body('password').isLength({ min: 8 }).withMessage('La contraseña debe tener al menos 8 caracteres.'),
-  body('especialidad_id').isInt({ min: 1 }).withMessage('Especialidad inválida.'),
+  body('especialidad_id').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('Especialidad inválida.'),
   body('cedula_profesional').trim().notEmpty().withMessage('La cédula profesional es obligatoria.')
     .isLength({ max: 20 }).withMessage('La cédula no puede exceder 20 caracteres.')
     .matches(/^[a-zA-Z0-9\-]+$/).withMessage('La cédula solo puede contener letras, números y guiones.'),
@@ -35,5 +35,6 @@ router.get('/:id/disponibilidad', verificarToken, verificarRol(...ROLES_CONSULTA
 router.get('/:id', verificarToken, verificarRol(...ROLES_CONSULTA), obtenerMedico);
 router.post('/', verificarToken, verificarRol('admin'), validarCrear, crearMedico);
 router.put('/:id', verificarToken, verificarRol('admin'), validarActualizar, actualizarMedico);
+router.delete('/:id', verificarToken, verificarRol('admin'), eliminarMedico);
 
 module.exports = router;

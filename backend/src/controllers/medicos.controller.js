@@ -33,7 +33,7 @@ const listarMedicos = async (req, res) => {
       where: whereMedico,
       include: [
         { model: Usuario, as: 'usuario', where: whereUsuario, attributes: { exclude: PRIVATE_ATTRS }, required: true },
-        { model: Especialidad, as: 'especialidad', required: true },
+        { model: Especialidad, as: 'especialidad', required: false },
         { model: HorarioMedico, as: 'horarios', required: false, where: { activo: true }, separate: true },
       ],
       limit: limite,
@@ -77,11 +77,11 @@ const crearMedico = async (req, res) => {
     const [emailExiste, cedulaExiste, especialidad] = await Promise.all([
       Usuario.findOne({ where: { email } }),
       Medico.findOne({ where: { cedula_profesional } }),
-      Especialidad.findByPk(especialidad_id),
+      especialidad_id ? Especialidad.findByPk(especialidad_id) : null,
     ]);
     if (emailExiste) return res.status(400).json({ ok: false, mensaje: 'El correo electrónico ya está registrado.' });
     if (cedulaExiste) return res.status(400).json({ ok: false, mensaje: 'La cédula profesional ya está registrada.' });
-    if (!especialidad) return res.status(400).json({ ok: false, mensaje: 'Especialidad no encontrada.' });
+    if (especialidad_id && !especialidad) return res.status(400).json({ ok: false, mensaje: 'Especialidad no encontrada.' });
 
     const { nuevoMedico } = await sequelize.transaction(async (t) => {
       const nuevoUsuario = await Usuario.create(
@@ -89,7 +89,7 @@ const crearMedico = async (req, res) => {
         { transaction: t }
       );
       const nuevoMedico = await Medico.create(
-        { usuario_id: nuevoUsuario.id, especialidad_id, cedula_profesional, telefono_consultorio: telefono_consultorio || null },
+        { usuario_id: nuevoUsuario.id, especialidad_id: especialidad_id || null, cedula_profesional, telefono_consultorio: telefono_consultorio || null },
         { transaction: t }
       );
       if (Array.isArray(horarios) && horarios.length > 0) {
@@ -205,6 +205,11 @@ const obtenerDisponibilidad = async (req, res) => {
 
     const ocupadas = new Set(citasExistentes.map((c) => c.hora_inicio.substring(0, 5)));
 
+    const ahora = new Date();
+    const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+    const esHoy = fecha === hoy;
+    const minutosActuales = ahora.getHours() * 60 + ahora.getMinutes();
+
     const slots = [];
     const [hInicio, mInicio] = horario.hora_inicio.split(':').map(Number);
     const [hFin, mFin]       = horario.hora_fin.split(':').map(Number);
@@ -215,7 +220,8 @@ const obtenerDisponibilidad = async (req, res) => {
       const h = String(Math.floor(minutos / 60)).padStart(2, '0');
       const m = String(minutos % 60).padStart(2, '0');
       const label = `${h}:${m}`;
-      slots.push({ hora: label, disponible: !ocupadas.has(label) });
+      const yaPaso = esHoy && minutos <= minutosActuales;
+      slots.push({ hora: label, disponible: !ocupadas.has(label) && !yaPaso });
       minutos += 30;
     }
 
@@ -226,4 +232,40 @@ const obtenerDisponibilidad = async (req, res) => {
   }
 };
 
-module.exports = { listarMedicos, obtenerMedico, crearMedico, actualizarMedico, obtenerDisponibilidad };
+const eliminarMedico = async (req, res) => {
+  try {
+    const Cita = require('../models/Cita');
+    const medico = await Medico.findByPk(req.params.id, {
+      include: [{ model: Usuario, as: 'usuario' }],
+    });
+
+    if (!medico) {
+      return res.status(404).json({ ok: false, mensaje: 'Médico no encontrado.' });
+    }
+
+    const tieneCitas = await Cita.count({
+      where: {
+        [Op.or]: [
+          { medico_id: medico.id },
+          { creado_por_id: medico.usuario_id },
+        ],
+      },
+    });
+    if (tieneCitas > 0) {
+      return res.status(409).json({ ok: false, mensaje: 'No se puede eliminar el médico porque tiene citas registradas. Desactívelo en su lugar.' });
+    }
+
+    await sequelize.transaction(async (t) => {
+      await HorarioMedico.destroy({ where: { medico_id: medico.id }, transaction: t });
+      await medico.destroy({ transaction: t });
+      await medico.usuario.destroy({ transaction: t });
+    });
+
+    return res.status(200).json({ ok: true, mensaje: 'Médico eliminado correctamente.' });
+  } catch (error) {
+    console.error('Error al eliminar médico:', error);
+    return res.status(500).json({ ok: false, mensaje: 'Error al eliminar médico.' });
+  }
+};
+
+module.exports = { listarMedicos, obtenerMedico, crearMedico, actualizarMedico, obtenerDisponibilidad, eliminarMedico };

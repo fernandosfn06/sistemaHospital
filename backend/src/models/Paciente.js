@@ -63,10 +63,18 @@ const Paciente = sequelize.define('Paciente', {
   createdAt: 'creado_en',
   updatedAt: 'actualizado_en',
   hooks: {
-    beforeCreate: async (paciente) => {
-      const count = await Paciente.count();
-      const numero = String(count + 1).padStart(6, '0');
-      paciente.numero_expediente = `EXP-${numero}`;
+    beforeCreate: async (paciente, options) => {
+      const ultimo = await Paciente.findOne({
+        order: [['id', 'DESC']],
+        attributes: ['numero_expediente'],
+        transaction: options.transaction,
+      });
+      let siguiente = 1;
+      if (ultimo?.numero_expediente) {
+        const num = parseInt(ultimo.numero_expediente.replace('EXP-', ''), 10);
+        if (!isNaN(num)) siguiente = num + 1;
+      }
+      paciente.numero_expediente = `EXP-${String(siguiente).padStart(6, '0')}`;
     },
   },
 });

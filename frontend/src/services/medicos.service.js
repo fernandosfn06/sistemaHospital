@@ -34,3 +34,8 @@ export const crearEspecialidad = async (payload) => {
   const { data } = await API.post('/especialidades', payload);
   return data;
 };
+
+export const eliminarMedico = async (id) => {
+  const { data } = await API.delete(`/medicos/${id}`);
+  return data;
+};

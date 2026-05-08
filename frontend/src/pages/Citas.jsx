@@ -129,7 +129,7 @@ const Citas = () => {
                   </td>
                   <td className="px-5 py-3.5">
                     <p className="text-slate-700">Dr. {c.medico.usuario.nombre} {c.medico.usuario.apellido}</p>
-                    <p className="text-slate-400 text-xs">{c.medico.especialidad.nombre}</p>
+                    <p className="text-slate-400 text-xs">{c.medico.especialidad?.nombre ?? '—'}</p>
                   </td>
                   <td className="px-5 py-3.5">
                     <p className="text-slate-700">{formatFecha(c.fecha)}</p>
@@ -141,9 +141,16 @@ const Citas = () => {
                     <p className="text-slate-600 truncate">{c.motivo}</p>
                   </td>
                   <td className="px-5 py-3.5 text-center">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${ESTADO_BADGE[c.estado]}`}>
-                      {ESTADO_LABEL[c.estado]}
-                    </span>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${ESTADO_BADGE[c.estado]}`}>
+                        {ESTADO_LABEL[c.estado]}
+                      </span>
+                      {c.motivo_reprogramacion && (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-600 ring-1 ring-amber-200">
+                          Reprogramada
+                        </span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

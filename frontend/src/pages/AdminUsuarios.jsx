@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getUsuarios, toggleActivo, desbloquearCuenta } from '../services/usuarios.service';
+import { getUsuarios, toggleActivo, desbloquearCuenta, eliminarUsuario } from '../services/usuarios.service';
 
 const rolBadgeClasses = {
   admin:         'bg-red-50 text-red-600 ring-1 ring-red-200',
@@ -19,6 +19,29 @@ const rolLabel = {
   paciente: 'Paciente',
 };
 
+const ConfirmEliminar = ({ usuario, onConfirmar, onCancelar }) => (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+      <h3 className="text-base font-semibold text-slate-800 mb-2">Eliminar usuario</h3>
+      <p className="text-sm text-slate-500 mb-1">
+        ¿Estás seguro de que deseas eliminar a{' '}
+        <span className="font-medium text-slate-700">{usuario.nombre} {usuario.apellido}</span>?
+      </p>
+      <p className="text-xs text-red-500 mb-6">Esta acción es permanente y no se puede deshacer.</p>
+      <div className="flex gap-3 justify-end">
+        <button onClick={onCancelar}
+          className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+          Cancelar
+        </button>
+        <button onClick={onConfirmar}
+          className="px-4 py-2 text-sm rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white transition-colors">
+          Sí, eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 const AdminUsuarios = () => {
   const [usuarios, setUsuarios] = useState([]);
   const [total, setTotal] = useState(0);
@@ -26,6 +49,7 @@ const AdminUsuarios = () => {
   const [error, setError] = useState('');
   const [buscar, setBuscar] = useState('');
   const [filtroRol, setFiltroRol] = useState('');
+  const [usuarioAEliminar, setUsuarioAEliminar] = useState(null);
 
   const cargarUsuarios = async () => {
     try {
@@ -52,11 +76,31 @@ const AdminUsuarios = () => {
     cargarUsuarios();
   };
 
+  const handleEliminar = async () => {
+    if (!usuarioAEliminar) return;
+    try {
+      await eliminarUsuario(usuarioAEliminar.id);
+      setUsuarioAEliminar(null);
+      cargarUsuarios();
+    } catch (err) {
+      setError(err.response?.data?.mensaje || 'Error al eliminar usuario.');
+      setUsuarioAEliminar(null);
+    }
+  };
+
   const initials = (u) =>
     `${u.nombre?.[0] ?? ''}${u.apellido?.[0] ?? ''}`.toUpperCase();
 
   return (
     <div className="p-8">
+      {usuarioAEliminar && (
+        <ConfirmEliminar
+          usuario={usuarioAEliminar}
+          onConfirmar={handleEliminar}
+          onCancelar={() => setUsuarioAEliminar(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
@@ -158,6 +202,14 @@ const AdminUsuarios = () => {
                           className="text-xs px-3 py-1.5 rounded-lg font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
                         >
                           Desbloquear
+                        </button>
+                      )}
+                      {u.rol !== 'admin' && (
+                        <button
+                          onClick={() => setUsuarioAEliminar(u)}
+                          className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                        >
+                          Eliminar
                         </button>
                       )}
                     </div>

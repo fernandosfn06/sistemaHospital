@@ -33,17 +33,25 @@ const listarCitas = async (req, res) => {
     const where = {};
     if (medico_id)  where.medico_id   = medico_id;
     if (paciente_id) where.paciente_id = paciente_id;
-    if (estado)     where.estado      = estado;
+    if (estado === 'reprogramada') {
+      where.fecha_anterior = { [Op.ne]: null };
+    } else if (estado) {
+      where.estado = estado;
+    }
     if (fecha_desde || fecha_hasta) {
       where.fecha = {};
       if (fecha_desde) where.fecha[Op.gte] = fecha_desde;
       if (fecha_hasta) where.fecha[Op.lte] = fecha_hasta;
     }
 
-    // Si el usuario es médico, solo ve sus propias citas
+    // Si el usuario es médico o paciente, solo ve sus propias citas
     if (req.usuario.rol === 'medico') {
       const medico = await Medico.findOne({ where: { usuario_id: req.usuario.id } });
       if (medico) where.medico_id = medico.id;
+    }
+    if (req.usuario.rol === 'paciente') {
+      const paciente = await Paciente.findOne({ where: { usuario_id: req.usuario.id } });
+      if (paciente) where.paciente_id = paciente.id;
     }
 
     const { count, rows } = await Cita.findAndCountAll({
@@ -79,7 +87,13 @@ const crearCita = async (req, res) => {
     const errores = validationResult(req);
     if (!errores.isEmpty()) return res.status(400).json({ ok: false, errores: errores.array() });
 
-    const { paciente_id, medico_id, fecha, hora_inicio, motivo } = req.body;
+    let { paciente_id, medico_id, fecha, hora_inicio, motivo } = req.body;
+
+    if (req.usuario.rol === 'paciente') {
+      const miPaciente = await Paciente.findOne({ where: { usuario_id: req.usuario.id } });
+      if (!miPaciente) return res.status(400).json({ ok: false, mensaje: 'No se encontró tu perfil de paciente.' });
+      paciente_id = miPaciente.id;
+    }
 
     const [paciente, medico] = await Promise.all([
       Paciente.findByPk(paciente_id),
@@ -142,21 +156,21 @@ const reprogramarCita = async (req, res) => {
     const errores = validationResult(req);
     if (!errores.isEmpty()) return res.status(400).json({ ok: false, errores: errores.array() });
 
-    const citaOriginal = await Cita.findByPk(req.params.id);
-    if (!citaOriginal) return res.status(404).json({ ok: false, mensaje: 'Cita no encontrada.' });
-    if (['cancelada', 'completada', 'reprogramada'].includes(citaOriginal.estado)) {
-      return res.status(400).json({ ok: false, mensaje: `No se puede reprogramar una cita en estado "${citaOriginal.estado}".` });
+    const cita = await Cita.findByPk(req.params.id);
+    if (!cita) return res.status(404).json({ ok: false, mensaje: 'Cita no encontrada.' });
+    if (['cancelada', 'completada'].includes(cita.estado)) {
+      return res.status(400).json({ ok: false, mensaje: `No se puede reprogramar una cita en estado "${cita.estado}".` });
     }
 
-    const { fecha, hora_inicio, motivo } = req.body;
+    const { fecha, hora_inicio, motivo_reprogramacion } = req.body;
 
     const conflicto = await Cita.findOne({
       where: {
-        medico_id: citaOriginal.medico_id,
+        medico_id: cita.medico_id,
         fecha,
         hora_inicio: hora_inicio + ':00',
-        estado: { [Op.in]: ['programada', 'confirmada'] },
-        id: { [Op.ne]: citaOriginal.id },
+        estado: { [Op.in]: ['programada', 'confirmada', 'reprogramada'] },
+        id: { [Op.ne]: cita.id },
       },
     });
     if (conflicto) return res.status(409).json({ ok: false, mensaje: 'Ese horario ya está ocupado.' });
@@ -165,22 +179,18 @@ const reprogramarCita = async (req, res) => {
     const finMin = h * 60 + m + 30;
     const hora_fin = `${String(Math.floor(finMin / 60)).padStart(2, '0')}:${String(finMin % 60).padStart(2, '0')}:00`;
 
-    await citaOriginal.update({ estado: 'reprogramada' });
-
-    const nuevaCita = await Cita.create({
-      paciente_id: citaOriginal.paciente_id,
-      medico_id: citaOriginal.medico_id,
+    await cita.update({
       fecha,
       hora_inicio: hora_inicio + ':00',
       hora_fin,
-      motivo: motivo || citaOriginal.motivo,
       estado: 'programada',
-      cita_original_id: citaOriginal.id,
-      creado_por_id: req.usuario.id,
+      motivo_reprogramacion: motivo_reprogramacion?.trim() || null,
+      fecha_anterior: cita.fecha,
+      hora_inicio_anterior: cita.hora_inicio,
     });
 
-    const citaCompleta = await Cita.findByPk(nuevaCita.id, { include: includeCompleto });
-    return res.status(201).json({ ok: true, mensaje: 'Cita reprogramada exitosamente.', data: citaCompleta });
+    const citaCompleta = await Cita.findByPk(cita.id, { include: includeCompleto });
+    return res.status(200).json({ ok: true, mensaje: 'Cita reprogramada exitosamente.', data: citaCompleta });
   } catch (error) {
     console.error('Error al reprogramar cita:', error);
     return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor.' });
@@ -201,4 +211,31 @@ const confirmarCita = async (req, res) => {
   }
 };
 
-module.exports = { listarCitas, obtenerCita, crearCita, cancelarCita, reprogramarCita, confirmarCita };
+const completarCita = async (req, res) => {
+  try {
+    const cita = await Cita.findByPk(req.params.id);
+    if (!cita) return res.status(404).json({ ok: false, mensaje: 'Cita no encontrada.' });
+    if (!['programada', 'confirmada'].includes(cita.estado)) {
+      return res.status(400).json({ ok: false, mensaje: `Solo se pueden completar citas en estado "programada" o "confirmada".` });
+    }
+    await cita.update({ estado: 'completada' });
+    const actualizada = await Cita.findByPk(cita.id, { include: includeCompleto });
+    return res.status(200).json({ ok: true, mensaje: 'Cita marcada como completada.', data: actualizada });
+  } catch (error) {
+    return res.status(500).json({ ok: false, mensaje: 'Error al completar cita.' });
+  }
+};
+
+const eliminarCita = async (req, res) => {
+  try {
+    const cita = await Cita.findByPk(req.params.id);
+    if (!cita) return res.status(404).json({ ok: false, mensaje: 'Cita no encontrada.' });
+    await cita.destroy();
+    return res.status(200).json({ ok: true, mensaje: 'Cita eliminada correctamente.' });
+  } catch (error) {
+    console.error('Error al eliminar cita:', error);
+    return res.status(500).json({ ok: false, mensaje: 'Error al eliminar cita.' });
+  }
+};
+
+module.exports = { listarCitas, obtenerCita, crearCita, cancelarCita, reprogramarCita, confirmarCita, completarCita, eliminarCita };

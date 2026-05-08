@@ -29,3 +29,13 @@ export const confirmarCita = async (id) => {
   const { data } = await API.patch(`/citas/${id}/confirmar`);
   return data;
 };
+
+export const completarCita = async (id) => {
+  const { data } = await API.patch(`/citas/${id}/completar`);
+  return data;
+};
+
+export const eliminarCita = async (id) => {
+  const { data } = await API.delete(`/citas/${id}`);
+  return data;
+};

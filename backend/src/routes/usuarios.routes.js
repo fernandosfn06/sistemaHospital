@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const { listarUsuarios, obtenerUsuario, toggleActivo, desbloquearCuenta } = require('../controllers/usuarios.controller');
+const { listarUsuarios, obtenerUsuario, toggleActivo, desbloquearCuenta, eliminarUsuario } = require('../controllers/usuarios.controller');
 const { verificarToken, verificarRol } = require('../middlewares/auth.middleware');
 
 const router = Router();
@@ -16,5 +16,8 @@ router.patch('/:id/toggle', verificarToken, verificarRol('admin'), toggleActivo)
 
 // PATCH /api/usuarios/:id/desbloquear → Desbloquear cuenta bloqueada (HU30)
 router.patch('/:id/desbloquear', verificarToken, verificarRol('admin'), desbloquearCuenta);
+
+// DELETE /api/usuarios/:id → Eliminar usuario
+router.delete('/:id', verificarToken, verificarRol('admin'), eliminarUsuario);
 
 module.exports = router;

@@ -122,7 +122,7 @@ const CitaForm = () => {
                 <option value="">Seleccionar médico...</option>
                 {medicos.map((m) => (
                   <option key={m.id} value={m.id}>
-                    Dr. {m.usuario.nombre} {m.usuario.apellido} — {m.especialidad.nombre}
+                    Dr. {m.usuario.nombre} {m.usuario.apellido}{m.especialidad ? ` — ${m.especialidad.nombre}` : ''}
                   </option>
                 ))}
               </select>

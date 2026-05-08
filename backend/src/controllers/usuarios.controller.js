@@ -77,16 +77,41 @@ const toggleActivo = async (req, res) => {
       return res.status(400).json({ ok: false, mensaje: 'No puedes desactivar tu propia cuenta.' });
     }
 
-    usuario.activo = !usuario.activo;
-    await usuario.save();
+    const nuevoActivo = !usuario.activo;
+    await usuario.update({ activo: nuevoActivo });
 
     return res.status(200).json({
       ok: true,
-      mensaje: `Usuario ${usuario.activo ? 'activado' : 'desactivado'} correctamente.`,
-      data: { id: usuario.id, activo: usuario.activo },
+      mensaje: `Usuario ${nuevoActivo ? 'activado' : 'desactivado'} correctamente.`,
+      data: { id: usuario.id, activo: nuevoActivo },
     });
   } catch (error) {
     return res.status(500).json({ ok: false, mensaje: 'Error al actualizar usuario.' });
+  }
+};
+
+const eliminarUsuario = async (req, res) => {
+  try {
+    const usuario = await Usuario.findByPk(req.params.id);
+
+    if (!usuario) {
+      return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado.' });
+    }
+
+    if (usuario.id === req.usuario.id) {
+      return res.status(400).json({ ok: false, mensaje: 'No puedes eliminar tu propia cuenta.' });
+    }
+
+    if (usuario.rol === 'admin') {
+      return res.status(400).json({ ok: false, mensaje: 'No se puede eliminar una cuenta de administrador.' });
+    }
+
+    await usuario.destroy();
+
+    return res.status(200).json({ ok: true, mensaje: 'Usuario eliminado correctamente.' });
+  } catch (error) {
+    console.error('Error al eliminar usuario:', error);
+    return res.status(500).json({ ok: false, mensaje: 'Error al eliminar usuario.' });
   }
 };
 
@@ -106,4 +131,4 @@ const desbloquearCuenta = async (req, res) => {
   }
 };
 
-module.exports = { listarUsuarios, obtenerUsuario, toggleActivo, desbloquearCuenta };
+module.exports = { listarUsuarios, obtenerUsuario, toggleActivo, desbloquearCuenta, eliminarUsuario };

@@ -15,6 +15,7 @@ import MedicoForm from './pages/MedicoForm';
 import Citas from './pages/Citas';
 import CitaDetalle from './pages/CitaDetalle';
 import CitaForm from './pages/CitaForm';
+import PacienteDashboard from './pages/PacienteDashboard';
 import './index.css';
 
 // Layout con sidebar lateral para páginas protegidas
@@ -40,6 +41,13 @@ const App = () => {
           <Route path="/dashboard" element={
             <PrivateRoute>
               <AppLayout><Dashboard /></AppLayout>
+            </PrivateRoute>
+          } />
+
+          {/* Panel del paciente */}
+          <Route path="/mi-panel" element={
+            <PrivateRoute roles={['paciente']}>
+              <AppLayout><PacienteDashboard /></AppLayout>
             </PrivateRoute>
           } />
 

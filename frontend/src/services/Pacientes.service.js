@@ -29,3 +29,8 @@ export const toggleActivoPaciente = async (id) => {
   const { data } = await API.patch(`/pacientes/${id}/toggle`);
   return data;
 };
+
+export const eliminarPaciente = async (id) => {
+  const { data } = await API.delete(`/pacientes/${id}`);
+  return data;
+};

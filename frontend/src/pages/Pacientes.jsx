@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getPacientes, toggleActivoPaciente } from '../services/pacientes.service';
+import { getPacientes, toggleActivoPaciente, eliminarPaciente } from '../services/pacientes.service';
 
 const TIPO_SANGRE_BADGE = {
   'A+': 'bg-red-50 text-red-600', 'A-': 'bg-red-50 text-red-600',
@@ -49,6 +49,35 @@ const ConfirmModal = ({ paciente, accion, onConfirmar, onCancelar }) => (
   </div>
 );
 
+const DeleteModal = ({ paciente, onConfirmar, onCancelar }) => (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+      <h3 className="text-base font-semibold text-slate-800 mb-2">Eliminar paciente</h3>
+      <p className="text-sm text-slate-500 mb-2">
+        ¿Estás seguro de que deseas eliminar permanentemente a{' '}
+        <span className="font-medium text-slate-700">
+          {paciente.usuario.nombre} {paciente.usuario.apellido}
+        </span>?
+      </p>
+      <p className="text-xs text-red-600 mb-6">Esta acción no se puede deshacer. Si el paciente tiene citas, no podrá eliminarse.</p>
+      <div className="flex gap-3 justify-end">
+        <button
+          onClick={onCancelar}
+          className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={onConfirmar}
+          className="px-4 py-2 text-sm rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
+        >
+          Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 const Pacientes = () => {
   const { usuario } = useAuth();
   const navigate = useNavigate();
@@ -62,8 +91,10 @@ const Pacientes = () => {
   const [buscar, setBuscar] = useState('');
   const [filtroActivo, setFiltroActivo] = useState('');
   const [modalInfo, setModalInfo] = useState(null);
+  const [deleteModal, setDeleteModal] = useState(null);
 
   const puedeGestionar = ['admin', 'recepcionista'].includes(usuario?.rol);
+  const esAdmin = usuario?.rol === 'admin';
 
   const cargar = async () => {
     try {
@@ -81,6 +112,19 @@ const Pacientes = () => {
   };
 
   useEffect(() => { cargar(); }, [buscar, filtroActivo, pagina]);
+
+  const handleEliminar = async () => {
+    if (!deleteModal) return;
+    try {
+      await eliminarPaciente(deleteModal.id);
+      setDeleteModal(null);
+      cargar();
+    } catch (err) {
+      const msg = err?.response?.data?.mensaje || 'Error al eliminar el paciente.';
+      setError(msg);
+      setDeleteModal(null);
+    }
+  };
 
   const handleToggle = async () => {
     if (!modalInfo) return;
@@ -114,6 +158,13 @@ const Pacientes = () => {
           accion={modalInfo.accion}
           onConfirmar={handleToggle}
           onCancelar={() => setModalInfo(null)}
+        />
+      )}
+      {deleteModal && (
+        <DeleteModal
+          paciente={deleteModal}
+          onConfirmar={handleEliminar}
+          onCancelar={() => setDeleteModal(null)}
         />
       )}
 
@@ -240,6 +291,14 @@ const Pacientes = () => {
                           }`}
                         >
                           {p.usuario.activo ? 'Desactivar' : 'Activar'}
+                        </button>
+                      )}
+                      {esAdmin && (
+                        <button
+                          onClick={() => setDeleteModal(p)}
+                          className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+                        >
+                          Eliminar
                         </button>
                       )}
                     </div>

@@ -20,3 +20,8 @@ export const desbloquearCuenta = async (id) => {
   const { data } = await API.patch(`/usuarios/${id}/desbloquear`);
   return data;
 };
+
+export const eliminarUsuario = async (id) => {
+  const { data } = await API.delete(`/usuarios/${id}`);
+  return data;
+};
